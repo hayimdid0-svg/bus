@@ -307,7 +307,7 @@ function focusEvent(ev, pan){
   if(pan!==false) map.openPopup ? null : null;
 }
 /* --------- 카카오 지도 engine --------- */
-let map=null, polyLayers=[], markerLayers=[], skelL=null, fitScheduled=false;
+let map=null, polyLayers=[], markerLayers=[], nostopLayers=[], routeLayers=[], eventOverlays=[], skelL=null, fitScheduled=false;
 
 function addSkeleton(){
   const lines=SKEL.river.map(c=>({pts:c.map(p=>[p.lat,p.lon])}))
@@ -336,10 +336,14 @@ function fitMapTo(pts){
 }
 function focusEvent(ev){
   activeEv=ev.s; renderEvPanel();
-  if(ev.segcoords.length) fitMapTo(ev.segcoords);
-  polyLayers.forEach(p=>p.setOptions({strokeOpacity:p.options.evid===ev.s?.95:.18}));
-  markerLayers.forEach(m=>{ const on=m.evid===ev.s; m.setMap(on?map:null); });
+  if(ev.segcoords && ev.segcoords.length) fitMapTo(ev.segcoords);
+  eventOverlays.forEach(g=>{
+    const on = g.evid===ev.s;
+    try{ g.line.setOptions({strokeOpacity: on?.95:.18}); }catch(e1){}
+    g.mks.forEach(m=>{ try{ m.setMap(on?map:null); }catch(e2){} });
+  });
 }
+
 function escHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function renderMap(){
   if(!map){
@@ -347,12 +351,19 @@ function renderMap(){
     addSkeleton();
   }
 
-  // 실제 버스노선 경로(방법 B) + 정류소 마커 try{ if(typeof polyLayers!=="undefined" && polyLayers.length){ polyLayers.forEach(function(p){ try{p.setMap(null);}catch(_e2){} }); } }catch(_e3){} polyLayers=[];
+  polyLayers.forEach(p=>p.setMap(null)); polyLayers=[];
+  markerLayers.forEach(m=>m.setMap(null)); markerLayers=[];
+  nostopLayers.forEach(n=>n.setMap(null)); nostopLayers=[];
+  routeLayers.forEach(r=>r.setMap(null)); routeLayers=[];
+  eventOverlays=[];
+  // 실제 버스노선 경로(방법 B) - 클리어 이후에 그려야 유지됨
   if(ROUTE_LINES && state.route && ROUTE_LINES[state.route] && ROUTE_LINES[state.route].length>1){
     const linePts = ROUTE_LINES[state.route].map(p=>new kakao.maps.LatLng(p[0],p[1]));
     const l=new kakao.maps.Polyline({path:linePts,strokeWeight:5,strokeColor:'#2E5BFF',strokeOpacity:.8});
-    polyLayers.push(l); l.setMap(map); try{const _b=new kakao.maps.LatLngBounds();linePts.forEach(p=>_b.extend(p));map.setBounds(_b);}catch(_e){}
+    routeLayers.push(l); l.setMap(map);
+    try{const _b=new kakao.maps.LatLngBounds();linePts.forEach(p=>_b.extend(p));map.setBounds(_b,40,60,40,60);}catch(_e){}
   }
+  // 무정차 정류소 마커 (우회 대상)
   if(state.route && STOPS){
     const det = RDET[state.route];
     const ns = (det && det.nostop) ? det.nostop : [];
@@ -367,11 +378,10 @@ function renderMap(){
       });
       const inf = new kakao.maps.InfoWindow({content:'<div style="padding:4px 8px;font-size:12px"><b>🚫 무정차</b> '+escHtml(st.nm)+' <span style="color:#888">('+code+')</span></div>'});
       kakao.maps.event.addListener(mk,'click',()=>inf.open(map,mk));
-      mk.setMap(map);
+      nostopLayers.push(mk); mk.setMap(map);
     });
   }
-  polyLayers.forEach(p=>p.setMap(null)); polyLayers=[];
-  markerLayers.forEach(m=>m.setMap(null)); markerLayers=[];
+
   const vis=EVENTS.filter(ev=>{
     if(state.route&&!ev.r.includes(state.route)) return false;
     if(state.cat!=='전체'&&ev.c!==state.cat) return false;
@@ -382,7 +392,7 @@ function renderMap(){
     const color=EVCOLORS[idx%EVCOLORS.length];
     const pts=ev.segcoords.map(p=>new kakao.maps.LatLng(p.lat,p.lon));
     const line=new kakao.maps.Polyline({path:pts,strokeWeight:5,strokeColor:color,strokeOpacity:.95,strokeStyle:'longdash',evid:ev.s});
-    line.setMap(map); polyLayers.push(line);
+    line.setMap(map); polyLayers.push(line); const grp={evid:ev.s,line:line,mks:[]}; eventOverlays.push(grp);
     const cts=escHtml(ev.t)+
       (ev.when?'<div style="color:#9a6b00;font-weight:700;font-size:12px;margin:3px 0">'+escHtml(ev.when)+'</div>':'')+
       (ev.ctrltime?'<div style="color:#9a6b00;font-weight:700;font-size:12px">통제 '+escHtml(ev.ctrltime)+'</div>':'')+
@@ -402,7 +412,7 @@ function renderMap(){
       });
       const minf=new kakao.maps.InfoWindow({content:'<div style="padding:3px 6px;font-size:12px;font-weight:700;color:#333">'+escHtml(ev.seg[pi]||('지점'+(pi+1)))+'</div>'});
       kakao.maps.event.addListener(mk,'click',()=>minf.open(map,mk));
-      mk.setMap(map); markerLayers.push(mk);
+      mk.setMap(map); markerLayers.push(mk); grp.mks.push(mk);
     });
   });
   if(vis.length&&activeEv==null) focusEvent(vis[0]);
@@ -527,7 +537,8 @@ function bootKakao(){
 }
 setTimeout(bootKakao, 400);
 </script>
-<div id="buildv" style="position:fixed;right:10px;bottom:8px;z-index:9999;font:600 11px/1.5 system-ui,sans-serif;color:#d35400;background:rgba(255,255,255,.95);border:1px solid #f0c36d;border-radius:8px;padding:2px 10px">v5 · 노선클릭준</div><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+<div id="buildv" style="position:fixed;right:10px;bottom:8px;z-index:9999;font:600 11px/1.5 system-ui,sans-serif;color:#16a085;background:rgba(255,255,255,.95);border:1px solid #a7d7cb;border-radius:8px;padding:2px 10px">v6 · 노선지도한정</div><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
