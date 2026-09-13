@@ -347,7 +347,7 @@ function renderMap(){
     addSkeleton();
   }
 
-  // 실제 버스노선 경로(방법 B) + 정류소 마커
+  // 실제 버스노선 경로(방법 B) + 정류소 마커 try{ if(typeof polyLayers!=="undefined" && polyLayers.length){ polyLayers.forEach(function(p){ try{p.setMap(null);}catch(_e2){} }); } }catch(_e3){} polyLayers=[];
   if(ROUTE_LINES && state.route && ROUTE_LINES[state.route] && ROUTE_LINES[state.route].length>1){
     const linePts = ROUTE_LINES[state.route].map(p=>new kakao.maps.LatLng(p[0],p[1]));
     const l=new kakao.maps.Polyline({path:linePts,strokeWeight:5,strokeColor:'#2E5BFF',strokeOpacity:.8});
@@ -442,7 +442,7 @@ function renderRouteChips(){
   });
 }
 function toggleRoute(n){
-  state.route = (state.route===n)? null:n;
+  state.route = (state.route===n)? null:n; renderMap();
   state.shown=40;
   activeEv=null;
   renderRouteChips(); renderMap(); renderEvPanel(); renderAll();
@@ -527,6 +527,7 @@ function bootKakao(){
 }
 setTimeout(bootKakao, 400);
 </script>
-<div id="buildv" style="position:fixed;right:10px;bottom:8px;z-index:9999;font:600 11px/1.5 system-ui,sans-serif;color:#16a085;background:rgba(255,255,255,.92);border:1px solid #a7d7cb;border-radius:8px;padding:2px 10px;letter-spacing:.2px">v4 · 버스노선라인</div><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+<div id="buildv" style="position:fixed;right:10px;bottom:8px;z-index:9999;font:600 11px/1.5 system-ui,sans-serif;color:#d35400;background:rgba(255,255,255,.95);border:1px solid #f0c36d;border-radius:8px;padding:2px 10px">v5 · 노선클릭준</div><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
